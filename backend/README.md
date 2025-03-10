@@ -39,5 +39,5 @@ python -m unittest tests.test_payments
 
 Run a specific test method:
 ```bash
-python -m unittest tests.test_payments.TestPayments.test_create_payment
+python -m unittest tests.test_payments.TestPayments.test_perform_ach_debit
 ```
