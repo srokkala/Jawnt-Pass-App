@@ -15,10 +15,10 @@ This project implements a banking system with the following core features:
 ├── frontend/          
    ├── src/          
       ├── app/      # Pages and layouts
-      ├── components/ # Reusable components
-      ├── dashboard/    # Dashboard page
-      ├── services/      # API wiring
-      └── types/    # TypeScript definitions
+        ├── components/ # Reusable components
+        ├── dashboard/    # Dashboard page
+        ├── services/      # API wiring
+        └── types/    # TypeScript definitions
 
 ├── backend/          
       ├── api/     # API endpoints
