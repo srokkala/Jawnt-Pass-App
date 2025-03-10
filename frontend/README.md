@@ -11,6 +11,7 @@ This is the frontend implementation for the Jawnt challenge.
 ## Step 1: Install Dependencies
 
 ```bash
+cd frontend
 npm i
 ```
 
