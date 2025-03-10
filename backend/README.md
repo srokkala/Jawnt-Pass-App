@@ -13,7 +13,7 @@ source venv/bin/activate
 
 2. Install dependencies:
 ```bash
-pip install fastapi uvicorn pydantic
+pip install -r requirements.txt
 ```
 
 3. Run the application:
