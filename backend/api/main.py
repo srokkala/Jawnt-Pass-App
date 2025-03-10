@@ -215,6 +215,33 @@ async def create_internal_account(
     created_account_data = db.internal_accounts.create(account_dict)
     return InternalOrganizationBankAccount(**created_account_data)
 
+@app.patch("/api/internal-accounts/{account_id}", response_model=InternalOrganizationBankAccount)
+async def update_internal_account(
+    account_id: int,
+    account_data: InternalAccountUpdate,
+    superuser: SuperUser = Depends(get_current_superuser)
+):
+    update_data = {}
+    if account_data.type is not None:
+        update_data["type"] = account_data.type
+    
+    updated_data = db.internal_accounts.update(account_id, update_data)
+    if not updated_data:
+        raise HTTPException(status_code=404, detail="Internal account not found")
+    
+    return InternalOrganizationBankAccount(**updated_data)
+
+@app.delete("/api/internal-accounts/{account_id}")
+async def delete_internal_account(
+    account_id: int,
+    superuser: SuperUser = Depends(get_current_superuser)
+):
+    deleted = db.internal_accounts.delete(account_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Internal account not found")
+    
+    return {"success": True}
+
 
 
 if __name__ == "__main__":
