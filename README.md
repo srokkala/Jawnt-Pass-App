@@ -12,7 +12,6 @@ This project implements a banking system with the following core features:
 ## Project Structure
 
 ```
-.
 ├── frontend/          
    ├── src/          
       ├── app/      # Pages and layouts
