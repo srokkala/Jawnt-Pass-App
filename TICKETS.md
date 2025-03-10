@@ -4,7 +4,7 @@
 1. Create Dashboard page for organization administrators
 2. Implement PlaidLink component for connecting external bank accounts
 3. Create PaymentList component to display organization payments
-4. Implement API service for backend communication
+4. Connect to API service for backend communication
 5. Add loading states and error handling for async operations
 
 ## Backend Tickets
