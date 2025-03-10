@@ -242,7 +242,115 @@ async def delete_internal_account(
     
     return {"success": True}
 
+# Payment Routes (for Superusers)
+@app.post("/api/payments", response_model=Payment)
+async def create_payment(
+    payment_data: PaymentCreate,
+    superuser: SuperUser = Depends(get_current_superuser)
+):
+    internal_account_data = db.internal_accounts.get(payment_data.internal_account_id)
+    if not internal_account_data:
+        raise HTTPException(status_code=404, detail="Internal account not found")
+    
+    external_account_data = db.external_accounts.get(payment_data.external_account_id)
+    if not external_account_data:
+        raise HTTPException(status_code=404, detail="External account not found")
+    
+    internal_account = InternalOrganizationBankAccount(**internal_account_data)
+    external_account = ExternalOrganizationBankAccount(**external_account_data)
+    
+    idempotency_key = str(uuid.uuid4())
+    now = datetime.now()
+    
+    payment_dict = {
+        "uuid": uuid.uuid4(),
+        "source_routing_number": external_account.routing_number,
+        "destination_routing_number": internal_account.routing_number,
+        "source_account_number": external_account.account_number,
+        "destination_account_number": internal_account.account_number,
+        "amount": payment_data.amount,
+        "status": PaymentStatus.PENDING.value,
+        "type": PaymentType.ACH_DEBIT.value,
+        "created_at": now,
+        "updated_at": now,
+        "idempotency_key": idempotency_key,
+        "organization_id": external_account.organization_id
+    }
+    
+    created_payment_data = db.payments.create(payment_dict)
+    created_payment = Payment(**created_payment_data)
+    
+    message_queue.publish("payments", {
+        "action": "create_ach_debit",
+        "payment_id": created_payment.id,
+        "internal_account_id": str(internal_account.id),
+        "external_account_id": str(external_account.id),
+        "amount": created_payment.amount,
+        "idempotency_key": idempotency_key
+    })
+    
+    return created_payment
 
+@app.get("/api/payments/{payment_id}", response_model=Payment)
+async def get_payment(
+    payment_id: int,
+    superuser: SuperUser = Depends(get_current_superuser)
+):
+    payment_data = db.payments.get(payment_id)
+    if not payment_data:
+        raise HTTPException(status_code=404, detail="Payment not found")
+    
+    payment = Payment(**payment_data)
+    
+    message_queue.publish("payment_status_checks", {
+        "action": "check_payment_status",
+        "payment_id": payment.id,
+        "payment_uuid": str(payment.uuid)
+    })
+    
+    return payment
+
+def handle_payment(message):
+    if message["action"] == "create_ach_debit":
+        payment_id = message["payment_id"]
+        payment_data = db.payments.get(payment_id)
+        if not payment_data:
+            return
+        
+        response = perform_ach_debit(
+            message["internal_account_id"],
+            message["external_account_id"],
+            message["amount"],
+            message["idempotency_key"]
+        )
+        
+        db.payments.update(payment_id, {
+            "status": response.status.value,
+            "updated_at": datetime.now()
+        })
+
+def handle_payment_status_check(message):
+    if message["action"] == "check_payment_status":
+        payment_id = message["payment_id"]
+        payment_data = db.payments.get(payment_id)
+        if not payment_data:
+            return
+        
+        try:
+            status = client_get_payment_status(message["payment_uuid"])
+            
+            db.payments.update(payment_id, {
+                "status": map_client_status_to_model(status).value,
+                "updated_at": datetime.now()
+            })
+        except Exception as e:
+            print(f"Error checking payment status: {e}")
+
+# Create queue for payment status checks
+message_queue.create_queue("payment_status_checks")
+
+message_queue.subscribe("payments", handle_payment)
+message_queue.subscribe("payment_status_checks", handle_payment_status_check)
 
 if __name__ == "__main__":
     import uvicorn
